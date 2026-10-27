@@ -1,0 +1,16 @@
+# Build outputs
+build/
+.gradle/
+app/build/
+
+# Android Studio
+*.iml
+.idea/
+local.properties
+
+# Kotlin
+*.class
+
+# OS
+.DS_Store
+Thumbs.db

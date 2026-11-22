@@ -28,6 +28,7 @@ class ZapretVpnService : VpnService() {
         const val EXTRA_TELEGRAM_ENABLED = "telegram_enabled"
         private const val CHANNEL_ID = "zapret_vpn"
         private const val NOTIFICATION_ID = 1
+        private const val TUN_MTU = 1500
 
         var isRunning = false
             private set
@@ -55,6 +56,7 @@ class ZapretVpnService : VpnService() {
     private var tunnelJob: Job? = null
     private var cleanupJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val fragmentReassembler = IpFragmentReassembler()
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
@@ -79,10 +81,9 @@ class ZapretVpnService : VpnService() {
         }
 
         DomainLists.load(this)
-        FakePackets.load(this)
         createNotificationChannel()
         val notification = buildNotification(strategy.name)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
                 NOTIFICATION_ID,
                 notification,
@@ -96,11 +97,13 @@ class ZapretVpnService : VpnService() {
         val builder = Builder()
             .setSession("ZapretDroid")
             .addAddress("10.0.0.1", 30)
+            .addAddress("fd00:7a70:7265:74::1", 126)
             .addDnsServer("1.1.1.1")
             .addDnsServer("8.8.8.8")
             .addRoute("0.0.0.0", 0)
-            .setMtu(1500)
-            .setBlocking(false)
+            .addRoute("::", 0)
+            .setMtu(TUN_MTU)
+            .setBlocking(true)
 
         // Exclude our own app from VPN to prevent loops
         try { builder.addDisallowedApplication(packageName) } catch (_: Exception) {}
@@ -159,41 +162,37 @@ class ZapretVpnService : VpnService() {
                 continue
             }
 
-            val packet = buf.copyOf(n)
-            val version = PacketUtils.parseIpVersion(packet)
-            if (version != 4) continue  // IPv6 not supported yet
-
-            val protocol = PacketUtils.parseIpProtocol(packet)
-            val ipHL = PacketUtils.parseIpHeaderLen(packet)
-            if (ipHL > n) continue
-
-            when (protocol) {
-                6 -> {  // TCP
-                    val dstPort = PacketUtils.parseTcpDstPort(packet, ipHL)
-                    if (isTargetPort(dstPort, strategy = currentStrategy())) {
-                        tcpHandler?.handlePacket(packet, writeTun)
-                    } else {
-                        // pass through unmodified (shouldn't happen since we route all traffic)
-                    }
+            try {
+                val incoming = buf.copyOf(n)
+                if (!PacketUtils.isValidIpPacket(incoming)) continue
+                val packet = if (PacketUtils.isFragment(incoming)) {
+                    fragmentReassembler.accept(incoming) ?: continue
+                } else {
+                    incoming
                 }
-                17 -> {  // UDP
-                    val dstPort = PacketUtils.parseUdpDstPort(packet, ipHL)
-                    if (isUdpTargetPort(dstPort, strategy = currentStrategy())) {
+                if (!PacketUtils.isValidIpPacket(packet)) continue
+                val protocol = PacketUtils.parseIpProtocol(packet)
+                when (protocol) {
+                    6 -> {
+                        tcpHandler?.handlePacket(packet, writeTun)
+                    }
+                    17 -> {
                         udpHandler?.handlePacket(packet, writeTun)
                     }
+                    else -> logUnsupportedProtocolOnce(protocol)
                 }
+            } catch (e: Exception) {
+                log("VPN packet processing failed: ${e.message}")
             }
         }
     }
 
-    private fun isTargetPort(port: Int, strategy: Strategy?): Boolean {
-        if (strategy == null) return true
-        return port in strategy.tcpPorts
-    }
-
-    private fun isUdpTargetPort(port: Int, strategy: Strategy?): Boolean {
-        if (strategy == null) return true
-        return port in strategy.udpPorts || (port in 19294..19344) || (port in 50000..50100)
+    private val unsupportedProtocols = mutableSetOf<Int>()
+    @Synchronized
+    private fun logUnsupportedProtocolOnce(protocol: Int) {
+        if (unsupportedProtocols.add(protocol)) {
+            log("Unsupported IP protocol $protocol is dropped")
+        }
     }
 
     private fun currentStrategy(): Strategy? =

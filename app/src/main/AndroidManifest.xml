@@ -36,6 +36,9 @@
             <meta-data
                 android:name="android.app.FOREGROUND_SERVICE_SPECIAL_USE"
                 android:value="vpn" />
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="VPN traffic tunneling and DPI filtering" />
         </service>
 
         <receiver

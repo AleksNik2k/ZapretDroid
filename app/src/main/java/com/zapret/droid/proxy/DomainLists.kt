@@ -3,8 +3,8 @@ package com.zapret.droid.proxy
 import android.content.Context
 import java.io.BufferedReader
 import java.io.InputStreamReader
-import java.net.Inet4Address
 import java.net.InetAddress
+import java.math.BigInteger
 import java.nio.charset.StandardCharsets
 import java.util.Locale
 
@@ -17,7 +17,7 @@ object DomainLists {
     private var ipsetFilterEnabled = false
     private var gameFilterEnabled = false
 
-    private data class IpRange(val first: Long, val last: Long)
+    private data class IpRange(val addressLength: Int, val first: BigInteger, val last: BigInteger)
 
     enum class UdpType { QUIC, STUN, DISCORD, UNKNOWN }
 
@@ -88,32 +88,56 @@ object DomainLists {
                 return@mapNotNull null
             }
             val parts = trimmed.split("/")
-            val address = try {
-                InetAddress.getByName(parts[0]) as? Inet4Address
-            } catch (_: Exception) {
-                null
-            } ?: return@mapNotNull null
+            if (parts.size > 2) return@mapNotNull null
+            val address = parseIpLiteral(parts[0]) ?: return@mapNotNull null
+            val addressBytes = address.address
+            val bitLength = addressBytes.size * 8
             val prefix = if (parts.size > 1) parts[1].toIntOrNull() else null
-            val maskBits = prefix ?: 32
-            if (maskBits !in 0..32) return@mapNotNull null
-            val first = address.address.fold(0L) { value, byte ->
-                (value shl 8) or (byte.toLong() and 0xFF)
+            val maskBits = prefix ?: bitLength
+            if (maskBits !in 0..bitLength) return@mapNotNull null
+            val value = BigInteger(1, addressBytes)
+            val hostBits = bitLength - maskBits
+            val first = value.shiftRight(hostBits).shiftLeft(hostBits)
+            val last = first + BigInteger.ONE.shiftLeft(hostBits) - BigInteger.ONE
+            if (addressBytes.size == 4 && intersectsDocumentationIpv4(first, last)) {
+                return@mapNotNull null
             }
-            val size = 1L shl (32 - maskBits)
-            IpRange(first, first + size - 1)
+            IpRange(addressBytes.size, first, last)
         }
 
     private fun isInRanges(ip: String, ranges: Iterable<IpRange>): Boolean {
-        val address = try {
-            InetAddress.getByName(ip) as? Inet4Address
+        val address = parseIpLiteral(ip) ?: return false
+        val bytes = address.address
+        val value = BigInteger(1, bytes)
+        return ranges.any {
+            it.addressLength == bytes.size && value >= it.first && value <= it.last
+        }
+    }
+
+    internal fun isIpInRanges(ip: String, lines: Iterable<String>): Boolean =
+        isInRanges(ip, parseRanges(lines))
+
+    internal fun hasUsableIpRanges(content: String): Boolean =
+        parseRanges(content.lineSequence().asIterable()).isNotEmpty()
+
+    private fun parseIpLiteral(value: String): InetAddress? {
+        return try {
+            if (value.contains(':')) {
+                if (!IPV6_LITERAL_PATTERN.matches(value)) return null
+            } else {
+                if (!IPV4_LITERAL_PATTERN.matches(value)) return null
+                if (value.split('.').any { it.toIntOrNull() !in 0..255 }) return null
+            }
+            InetAddress.getByName(value)
         } catch (_: Exception) {
             null
-        } ?: return false
-        val value = address.address.fold(0L) { result, byte ->
-            (result shl 8) or (byte.toLong() and 0xFF)
         }
-        return ranges.any { value in it.first..it.last }
     }
+
+    private fun intersectsDocumentationIpv4(first: BigInteger, last: BigInteger): Boolean =
+        DOCUMENTATION_IPV4_RANGES.any { (rangeFirst, rangeLast) ->
+            first <= rangeLast && last >= rangeFirst
+        }
 
     fun isInGeneralList(host: String): Boolean {
         val lower = host.lowercase(Locale.ROOT)
@@ -195,4 +219,12 @@ object DomainLists {
         ) return UdpType.DISCORD
         return UdpType.UNKNOWN
     }
+
+    private val IPV4_LITERAL_PATTERN = Regex("""(?:\d{1,3}\.){3}\d{1,3}""")
+    private val IPV6_LITERAL_PATTERN = Regex("""[0-9a-fA-F:.]+""")
+    private val DOCUMENTATION_IPV4_RANGES = listOf(
+        BigInteger("3221225984", 10) to BigInteger("3221226239", 10),
+        BigInteger("3325256704", 10) to BigInteger("3325256959", 10),
+        BigInteger("3405803776", 10) to BigInteger("3405804031", 10)
+    )
 }

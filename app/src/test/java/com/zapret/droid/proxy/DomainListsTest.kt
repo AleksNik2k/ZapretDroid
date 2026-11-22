@@ -29,4 +29,21 @@ class DomainListsTest {
     fun unknownPacketUsesUnknownType() {
         assertEquals(DomainLists.UdpType.UNKNOWN, DomainLists.classifyUdp(byteArrayOf(1, 2, 3)))
     }
+
+    @Test
+    fun rejectsDocumentationOnlyIpSet() {
+        assertEquals(false, DomainLists.hasUsableIpRanges("203.0.113.113/32"))
+        assertEquals(
+            false,
+            DomainLists.isIpInRanges("203.0.113.113", listOf("203.0.113.113/32"))
+        )
+    }
+
+    @Test
+    fun matchesIpv6IpSetRanges() {
+        assertEquals(
+            true,
+            DomainLists.isIpInRanges("2001:4860:4860::8888", listOf("2001:4860::/32"))
+        )
+    }
 }

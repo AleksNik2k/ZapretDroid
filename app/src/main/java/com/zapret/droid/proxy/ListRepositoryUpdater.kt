@@ -21,6 +21,12 @@ object ListRepositoryUpdater {
         prefs.edit().apply {
             files.forEach { (key, file) ->
                 val content = download(file) ?: return@forEach
+                if (key == "updated_ipset" && !DomainLists.hasUsableIpRanges(content)) {
+                    return@forEach
+                }
+                if (key == "updated_ipset_exclude" && content.isBlank()) {
+                    return@forEach
+                }
                 putString(key, content)
                 downloaded++
             }

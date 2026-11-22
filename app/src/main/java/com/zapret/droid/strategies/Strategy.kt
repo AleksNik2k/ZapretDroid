@@ -21,15 +21,24 @@ data class Strategy(
     val desyncCutoff: DesyncCutoff = DesyncCutoff.N4,
     val ipIdZero: Boolean = false,
     val filterL7: List<L7Protocol> = emptyList(),
+    val hostFakeHost: String = "www.google.com",
+    val hostFakeAltOrder: Boolean = false,
+    val fakedsplitPattern: Int = 0,
     val services: List<Service> = Service.entries,
     val telegramEnabled: Boolean = true
 )
 
 enum class DesyncMethod { FAKE, MULTISPLIT, FAKEDSPLIT, SYNDATA, MULTIDISORDER, HOSTFAKESPLIT }
 enum class SplitPos { POS_1, POS_2, MIDSLD, SNIEXT_PLUS_1 }
-enum class SeqovlPattern { GOOGLE_TLS, MAX_TLS, PDA_TLS, NONE }
+enum class SeqovlPattern { GOOGLE_TLS, MAX_TLS, PDA_TLS, STUN_TLS, NONE }
 enum class FoolingMethod { BADSEQ, TS, MD5SIG }
-enum class FakeData { QUIC_GOOGLE, QUIC_DBANK, TLS_GOOGLE, TLS_MAX, TLS_4PDA, STUN, UNKNOWN_UDP }
+enum class FakeData {
+    QUIC_GOOGLE, QUIC_DBANK, QUIC_4PDA, QUIC_5KA, QUIC_LEMANA,
+    QUIC_RUTUBE, QUIC_STEAM_CHAT, QUIC_STEAMCOMMUNITY, QUIC_STEAMSTATIC,
+    QUIC_TENCENT, TLS_GOOGLE, TLS_MAX, TLS_4PDA, TLS_5KA, TLS_AWSWAF,
+    TLS_SOCHI, TLS_STEAM_CHAT, TLS_STEAMSTATIC, TLS_TEAMSPEAK, TLS_SFERUM,
+    STUN, STUN2, ACTIVE_DISCORD_UDP, ACTIVE_GAME_UDP, UNKNOWN_UDP
+}
 enum class FakeTlsMod { NONE, RND, DUPSID }
 enum class DesyncCutoff { N2, N3, N4, N5 }
 enum class L7Protocol { DISCORD, STUN }

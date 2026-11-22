@@ -6,6 +6,7 @@ import android.net.VpnService
 import android.os.Bundle
 import android.os.Build
 import android.content.pm.PackageManager
+import android.app.AlertDialog
 import android.view.View
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,10 +18,16 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.zapret.droid.service.ZapretVpnService
+import com.zapret.droid.proxy.ListRepositoryUpdater
+import com.zapret.droid.proxy.DomainLists
 import com.zapret.droid.strategies.Strategy
 import com.zapret.droid.strategies.StrategyPresets
 import com.zapret.droid.ui.LogAdapter
 import com.zapret.droid.ui.StrategyAdapter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
 
@@ -37,6 +44,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var rvLogs: RecyclerView
     private lateinit var statusIndicator: View
     private lateinit var btnClearLogs: MaterialButton
+    private lateinit var switchGameFilter: SwitchMaterial
+    private lateinit var switchIpSetFilter: SwitchMaterial
+    private lateinit var btnCustomLists: MaterialButton
+    private lateinit var btnUpdateLists: MaterialButton
 
     private var selectedStrategy: Strategy = StrategyPresets.GENERAL
 
@@ -83,6 +94,10 @@ class MainActivity : AppCompatActivity() {
         rvLogs = findViewById(R.id.rvLogs)
         statusIndicator = findViewById(R.id.statusIndicator)
         btnClearLogs = findViewById(R.id.btnClearLogs)
+        switchGameFilter = findViewById(R.id.switchGameFilter)
+        switchIpSetFilter = findViewById(R.id.switchIpSetFilter)
+        btnCustomLists = findViewById(R.id.btnCustomLists)
+        btnUpdateLists = findViewById(R.id.btnUpdateLists)
     }
 
     private fun loadPreferences() {
@@ -90,6 +105,8 @@ class MainActivity : AppCompatActivity() {
         selectedStrategy = StrategyPresets.ALL.find { it.id == savedId } ?: StrategyPresets.GENERAL
         switchTelegram.isChecked = prefs.getBoolean("telegram_enabled", true)
         switchAutostart.isChecked = prefs.getBoolean("autostart", false)
+        switchGameFilter.isChecked = prefs.getBoolean("game_filter_enabled", false)
+        switchIpSetFilter.isChecked = prefs.getBoolean("ipset_filter_enabled", false)
     }
 
     private fun setupStrategyList() {
@@ -139,6 +156,25 @@ class MainActivity : AppCompatActivity() {
             ZapretVpnService.clearLogs()
             logAdapter.clearLogs()
         }
+
+        switchGameFilter.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean("game_filter_enabled", checked).apply()
+            DomainLists.load(this)
+            ZapretVpnService.log(
+                if (checked) "Фильтр игр/UDP включён" else "Фильтр игр/UDP выключен"
+            )
+        }
+
+        switchIpSetFilter.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean("ipset_filter_enabled", checked).apply()
+            DomainLists.load(this)
+            ZapretVpnService.log(
+                if (checked) "IPSet-фильтр включён" else "IPSet-фильтр выключен"
+            )
+        }
+
+        btnCustomLists.setOnClickListener { showCustomListsDialog() }
+        btnUpdateLists.setOnClickListener { updateLists() }
     }
 
     private fun requestVpnPermission() {
@@ -147,6 +183,61 @@ class MainActivity : AppCompatActivity() {
             vpnPermissionLauncher.launch(intent)
         } else {
             startVpnService()
+        }
+    }
+
+    private fun showCustomListsDialog() {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 24, 48, 0)
+        }
+        fun field(key: String, hint: String): EditText =
+            EditText(this).apply {
+                this.hint = hint
+                setText(prefs.getString(key, "") ?: "")
+                minLines = 3
+                gravity = android.view.Gravity.TOP
+                container.addView(this)
+            }
+
+        val general = field("custom_general_domains", "Доп. General домены")
+        val google = field("custom_google_domains", "Доп. Google домены")
+        val exclude = field("custom_exclude_domains", "Исключённые домены")
+        val ipset = field("custom_ipset", "Доп. IP/CIDR")
+        val ipsetExclude = field("custom_ipset_exclude", "Исключённые IP/CIDR")
+
+        val scroll = ScrollView(this).apply { addView(container) }
+        AlertDialog.Builder(this)
+            .setTitle("Пользовательские списки")
+            .setView(scroll)
+            .setNegativeButton("Отмена", null)
+            .setPositiveButton("Сохранить") { _, _ ->
+                prefs.edit()
+                    .putString("custom_general_domains", general.text.toString())
+                    .putString("custom_google_domains", google.text.toString())
+                    .putString("custom_exclude_domains", exclude.text.toString())
+                    .putString("custom_ipset", ipset.text.toString())
+                    .putString("custom_ipset_exclude", ipsetExclude.text.toString())
+                    .apply()
+                DomainLists.load(this)
+                ZapretVpnService.log("Пользовательские списки обновлены")
+            }
+            .show()
+    }
+
+    private fun updateLists() {
+        btnUpdateLists.isEnabled = false
+        CoroutineScope(Dispatchers.IO).launch {
+            val downloaded = ListRepositoryUpdater.update(this@MainActivity)
+            withContext(Dispatchers.Main) {
+                btnUpdateLists.isEnabled = true
+                ZapretVpnService.log(
+                    if (downloaded > 0)
+                        "Обновлено списков: $downloaded"
+                    else
+                        "Не удалось обновить списки"
+                )
+            }
         }
     }
 

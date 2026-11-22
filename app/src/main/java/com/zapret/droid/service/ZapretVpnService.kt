@@ -79,6 +79,7 @@ class ZapretVpnService : VpnService() {
         }
 
         DomainLists.load(this)
+        FakePackets.load(this)
         createNotificationChannel()
         val notification = buildNotification(strategy.name)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

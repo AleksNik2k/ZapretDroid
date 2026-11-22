@@ -64,10 +64,15 @@ class TcpProxyHandler(
                         session.realSocket?.let { sock ->
                             scope.launch {
                                 try {
-                                    val bypass = DpiBypass(strategy)
+                                    val bypass = DpiBypass(vpnService, strategy)
                                     if (session.clientSeq == seq) {
                                         // First data (TLS ClientHello)
-                                        bypass.applyOnConnect(sock, payload, sock.getOutputStream())
+                                        if (DomainLists.shouldBypassTcp(key.dstIp, payload)) {
+                                            bypass.applyOnConnect(sock, payload, sock.getOutputStream())
+                                        } else {
+                                            sock.getOutputStream().write(payload)
+                                            sock.getOutputStream().flush()
+                                        }
                                     } else {
                                         sock.getOutputStream().write(payload)
                                         sock.getOutputStream().flush()

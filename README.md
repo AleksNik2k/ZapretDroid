@@ -1,121 +1,238 @@
 # ZapretDroid
 
-Android-порт [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) и [Flowseal/tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy).  
-Обход DPI-блокировок YouTube, Discord и Telegram на Android. **Root не требуется.**
+Android-порт идей и стратегий
+[Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube)
+и [Flowseal/tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy).
+Приложение помогает обходить DPI-блокировки для YouTube, Discord, Telegram и других сервисов
+через локальный Android `VpnService`. Root не требуется.
 
-> ### ФЕЙКИ
->
-> Это единственный официальный репозиторий проекта.  
-> Если вы встретили что-то похожее в других местах — **ФЕЙК**.
+## Возможности
 
-> ### РАЗРЕШЕНИЕ НА VPN
->
-> При первом запуске Android запросит разрешение на создание VPN-соединения. Это стандартный системный запрос — приложение использует Android VpnService API (аналог WinDivert/iptables на Windows/Linux). Само соединение локальное, трафик не уходит на сторонние серверы.
+- Запуск и остановка VPN-перехода через системный диалог разрешения Android
+- TCP и UDP проксирование через локальный TUN-интерфейс
+- Набор DPI-стратегий для YouTube, Discord, Google, Telegram и игр
+- Доменные списки для Google и General-категорий
+- Исключения для доменов
+- Пользовательские доменные и IP/CIDR списки
+- IPSet-фильтрация и отдельный режим фильтрации игр/UDP
+- Обновление общих списков из репозитория Flowseal
+- Встроенные fake QUIC, TLS, STUN, Discord и game UDP-пакеты
+- Telegram WebSocket-прокси на локальном порту `1443`
+- Автозапуск VPN после загрузки устройства
+- Журнал работы с возможностью очистки
+- Постоянное уведомление о состоянии VPN
+- Поддержка системных разрешений Android 23–36
 
-## ⚙️ Использование
+## Требования
 
-1. Скачайте APK со [страницы последнего релиза](https://github.com/ezxidze/ZapretDroid/releases/latest)
-2. Разрешите установку из неизвестных источников и установите APK
-3. Откройте приложение → дайте разрешение на VPN
-4. Выберите стратегию из списка (начните с **General**)
-5. Нажмите **Запустить**
-6. Проверьте работу YouTube / Discord. Если не работает — пробуйте другие стратегии (**ALT 1, 2, 3...**)
-
-На Android 13 и новее приложение запросит разрешение на показ уведомления о состоянии VPN. Оно не влияет на работу обхода и может быть отклонено.
-
-## 🔧 Сборка
-
-- Android SDK 36
-- JDK 21 или совместимый JDK для Gradle
+- Android 6.0 и новее (`minSdk 23`)
+- Android SDK 36 для сборки
+- JDK 21 для совместимости с проектной toolchain
 - Android Gradle Plugin 8.13.0
+- Доступ к интернету для VPN-соединения и обновления списков
+
+## Установка
+
+1. Скачайте APK со [страницы релизов](https://github.com/AleksNik2k/ZapretDroid/releases).
+2. Разрешите установку приложения из неизвестного источника, если Android запросит подтверждение.
+3. Откройте приложение.
+4. При первом запуске разрешите создание VPN-соединения.
+5. На Android 13 и новее разрешите уведомления — это необязательное разрешение для системного уведомления VPN.
+6. Выберите стратегию и нажмите **Запустить**.
+
+Не все стратегии работают одинаково с разными провайдерами, регионами и узлами сети.
+Если выбранная стратегия не работает, попробуйте другой пресет.
+
+## Разрешения
+
+Приложение объявляет и запрашивает только необходимые для работы разрешения:
+
+| Разрешение | Назначение | Версии Android |
+|---|---|---|
+| `INTERNET` | Установка VPN-соединений и загрузка локального прокси-трафика | Все |
+| `POST_NOTIFICATIONS` | Показ системного уведомления состояния VPN | Android 13+ |
+| `FOREGROUND_SERVICE` | Запуск foreground-службы VPN | Android 9+ |
+| `FOREGROUND_SERVICE_SPECIAL_USE` | Тип foreground-службы для специального VPN-сервиса | Android 14+ |
+| `RECEIVE_BOOT_COMPLETED` | Автозапуск, если пользователь включил соответствующую настройку | Android 6+ |
+
+Разрешение VPN запрашивается интерактивно через стандартный Android `VpnService.prepare`.
+При включенном автозапуске служба не запускается, если разрешение VPN ещё не выдано.
+
+## Настройки приложения
+
+### Списки
+
+Кнопка **Списки** открывает редактор пользовательских значений:
+
+- дополнительные домены General
+- дополнительные домены Google
+- исключённые домены
+- дополнительные IP/CIDR
+- исключённые IP/CIDR
+
+Доменные записи поддерживают поддомены. Например, запись `discord.com`
+также охватывает `*.discord.com`.
+
+Кнопка **Обновить** загружает актуальные общие списки
+[оригинального проекта](https://github.com/Flowseal/zapret-discord-youtube).
+Пользовательские записи сохраняются отдельно и не перезаписываются обновлением.
+
+### IPSet-фильтр
+
+IPSet-фильтр ограничивает DPI-десинхронизацию адресами из загруженного списка.
+При отключенном фильтре обработка определяется доменным списком и UDP-классификацией.
+
+### Фильтр игр/UDP
+
+Режим дополнительно обрабатывает UDP-портовые диапазоны Discord/Gaming:
+
+- `19294–19344`
+- `50000–50100`
+
+## Стратегии
+
+Работоспособность стратегии зависит от провайдера и региона.
+
+| Стратегия | Основная техника |
+|---|---|
+| General | Fake QUIC, 6 повторов |
+| ALT 1 | Multisplit seqovl=681 |
+| ALT 2 | Fake + Multisplit seqovl=652 |
+| ALT 3 | Hostfakesplit + BadSeq |
+| ALT 4 | Syndata + Multidisorder |
+| ALT 5 | BadSeq increment=1000 |
+| ALT 6 | Fake + Fakedsplit seqovl=664 |
+| ALT 7 | Multisplit seqovl=568 + TS fooling |
+| ALT 8 | Fake + Discord L7 |
+| ALT 9 | Any-protocol + cutoff=n2 |
+| ALT 10 | Multisplit midsld |
+| ALT 11 | Fake TLS MAX.RU |
+| ALT 12 | Fake + Multisplit sniext+1 |
+| ALT 13 | Fake + Hostfakesplit |
+| EXP | Experimental QUIC/STUN/UDP режим |
+| Fake TLS AUTO | Рандомный TLS ClientHello |
+| Fake TLS AUTO DupSID | Рандомный TLS с дублированным Session ID |
+| Fake TLS AUTO ALT / ALT 2 / ALT 3 | Альтернативные Random/DupSID пресеты |
+| Simple Fake | Только fake-пакет |
+| Simple Fake ALT / ALT 2 | Альтернативные упрощённые fake-пресеты |
+| Simple Fake UDP | UDP/QUIC fake-пакет |
+| Google IP-ID Zero | Multisplit с IP-ID=0 |
+
+## Telegram
+
+Для Telegram обхода включите переключатель **Telegram обход**, запустите VPN и нажмите
+**Подключить**, когда кнопка станет доступной. Приложение откроет Telegram-ссылку
+на локальный MTProto-прокси `127.0.0.1:1443`.
+
+## Сборка
+
+### Локальная сборка
 
 ```bash
 bash gradlew :app:assembleDebug
 ```
 
-## ℹ️ Стратегии
+### Unit-тесты
 
-Работоспособность стратегии зависит от провайдера и региона. **Пробуйте разные стратегии, пока не найдёте рабочую.**
+```bash
+bash gradlew :app:testDebugUnitTest
+```
 
-| Стратегия | Техника | Для чего |
-|---|---|---|
-| **General** | Fake QUIC, repeats=6 | YouTube, Discord, Google |
-| **ALT 1** | Multisplit seqovl=681 | YouTube, Google |
-| **ALT 2** | Fake + Multisplit seqovl=652 | YouTube, Discord |
-| **ALT 3** | Hostfakesplit + BadSeq | YouTube, Discord |
-| **ALT 4** | Syndata + Multidisorder | Все сервисы |
-| **ALT 5** | BadSeq increment=1000 | YouTube, Discord |
-| **ALT 6** | Fake + Fakedsplit seqovl=664 | YouTube, Discord |
-| **ALT 7** | Multisplit seqovl=568 + TS fooling | YouTube |
-| **ALT 8** | Fake seqovl=679, L7=Discord | Discord media |
-| **ALT 9** | Any-protocol + cutoff=n2 | Игры, Discord |
-| **ALT 10** | Multisplit midsld | YouTube, Google |
-| **ALT 11** | Fake TLS MAX.RU | YouTube, Discord |
-| **ALT 12** | Fake + Multisplit sniext+1 | YouTube, Discord |
-| **Fake TLS AUTO** | Рандомный TLS ClientHello | Против pattern-DPI |
-| **Fake TLS AUTO DupSID** | Дублирование Session ID | Против pattern-DPI |
-| **Simple Fake** | Только fake-пакет | Fallback |
-| **Simple Fake UDP** | Fake для UDP/QUIC | Discord, игры |
-| **Google IP-ID Zero** | Multisplit + IP ID=0 | YouTube/Google |
+### Android lint
 
-## ☑️ Распространённые вопросы и проблемы
+```bash
+bash gradlew :app:lintDebug
+```
+
+Результаты сборки:
+
+- APK: `app/build/outputs/apk/debug/app-debug.apk`
+- Отчёт lint: `app/build/reports/lint-results-debug.html`
+- Отчёт unit-тестов: `app/build/reports/tests/testDebugUnitTest/`
+
+## Структура проекта
+
+- `app/src/main/java/com/zapret/droid/proxy` — TUN-пакеты, TCP/UDP прокси и DPI-техники
+- `app/src/main/java/com/zapret/droid/service` — VPN-служба и автозапуск
+- `app/src/main/java/com/zapret/droid/strategies` — пресеты и модели стратегий
+- `app/src/main/java/com/zapret/droid/ui` — адаптеры списков и журналов
+- `app/src/main/assets/lists` — встроенные доменные и IP списки
+- `app/src/main/assets/fake_packets` — набор реальных бинарных fake-пакетов
+- `app/src/test` — unit-тесты классификации сетевого трафика
+
+## Ограничения
+
+- Реализована фильтрация IPv4; IPv6 из исходного потока не поддерживается
+- Android не предоставляет WinDivert и не позволяет полностью эмулировать все raw-пакетные
+  функции nfqws; части, зависящие от низкоуровневой модификации ядра TCP/IP, ограничены
+- Для точного определения домена используется SNI или HTTP `Host`
+- Работоспособность стратегий зависит от настроек DPI конкретного провайдера
+
+## Распространённые проблемы
 
 ### Не работает YouTube
 
-- Убедитесь, что включён Secure DNS в браузере или системных настройках Android
-- Попробуйте все стратегии по порядку — ALT 1, 2, 3...
-- Попробуйте стратегии с пометкой "Fake TLS AUTO"
+- Проверьте Secure DNS в браузере или системных настройках Android
+- Переберите стратегии по порядку
+- Проверьте пользовательские Google-списки
+- Попробуйте пресеты с пометкой `Fake TLS AUTO`
 
 ### Не работает Discord
 
-- Сначала найдите стратегию, на которой работает YouTube, и запустите её
-- Для голосовых звонков и стримов попробуйте **ALT 8** — он оптимизирован под Discord media-серверы
-- Проверьте Discord в браузере на телефоне — если там работает, значит стратегия подходящая
+- Сначала найдите рабочую стратегию для YouTube
+- Для голосовых соединений попробуйте `ALT 8`
+- Включите режим `Фильтр игр/UDP`
+- Проверьте Discord в мобильном браузере
 
 ### Не работает Telegram
 
-- Включите переключатель **"Telegram обход"** в приложении
-- Нажмите кнопку **"Подключить"** — Telegram откроется автоматически с уже заполненными настройками прокси
-- Если кнопка не появляется — сначала нажмите **Запустить**
+- Включите переключатель `Telegram обход`
+- Запустите VPN
+- Нажмите `Подключить`
+- Если Telegram не установлен, приложение предложит открыть прокси-ссылку через браузер
 
-### Обход перестал работать
+### Перестал работать обход
 
-> Стратегии со временем могут переставать работать из-за обновления DPI на стороне провайдера. Если ни одна стратегия не помогает — создайте [issue](https://github.com/ezxidze/ZapretDroid/issues).
-
-- Попробуйте другие стратегии
+- Попробуйте другую стратегию
 - Перезапустите приложение
-- Проверьте, включён ли Secure DNS
+- Обновите общие списки
+- Проверьте Secure DNS
+- Проверьте пользовательские исключения
 
-### Не работают игры с включённым обходом
+### Не работают игры
 
-- Попробуйте стратегию **ALT 9** (any-protocol режим, оптимизирован для UDP)
-- Если игра не работает — добавьте её домены в `list-general.txt` в папке assets и пересоберите APK
+- Включите режим `Фильтр игр/UDP`
+- Попробуйте `ALT 9`
+- Добавьте IP/CIDR или домены нужного сервиса через раздел `Списки`
 
-### Не нашли своей проблемы
+## Добавление доменов в исходные файлы
 
-- Создайте её [тут](https://github.com/ezxidze/ZapretDroid/issues)
+Базовые списки находятся в `app/src/main/assets/lists/`:
 
-## 🗒️ Добавление своих доменов
-
-Список доменов для обхода находится в `app/src/main/assets/lists/`:
-
-- **`list-general.txt`** — Discord, CDN, Telegram и др.
-- **`list-google.txt`** — YouTube, Google
-- **`list-exclude.txt`** — домены, которые не нужно фильтровать
+- `list-general.txt` — Discord, CDN, Telegram и игровые сервисы
+- `list-google.txt` — YouTube, Google и связанные домены
+- `list-exclude.txt` — исключённые домены
+- `ipset-all.txt` — IP/CIDR для IPSet-фильтрации
+- `ipset-exclude.txt` — исключённые IP/CIDR
 
 Поддомены учитываются автоматически.
 
-## ⭐ Поддержка проекта
+Постоянные пользовательские изменения удобнее сохранять через кнопку **Списки**:
+они не перезаписываются при сборке или обновлении общих списков.
 
-Поставьте ⭐ этому репозиторию, если приложение вам помогло.
+## Поддержка проекта
 
-Также поддержите оригинального разработчика zapret [тут](https://github.com/bol-van/zapret?tab=readme-ov-file#поддержать-разработчика).
+Поставьте ⭐ репозиторию, если приложение вам помогло.
 
-## ⚖️ Лицензирование
+Поддержите оригинального разработчика zapret:
+[bol-van/zapret](https://github.com/bol-van/zapret?tab=readme-ov-file#поддержать-разработчика).
 
-Проект распространяется на условиях лицензии [MIT](LICENSE)
+## Лицензирование
 
-## 🩷 Благодарность
+Проект распространяется на условиях лицензии MIT.
 
-💖 Отдельная благодарность [Flowseal](https://github.com/Flowseal) за стратегии и tg-ws-proxy  
+## Благодарность
 
+- [Flowseal](https://github.com/Flowseal) — исходные стратегии и fake-пакеты
+- [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy) — идея Telegram WebSocket-прокси
+- [bol-van/zapret](https://github.com/bol-van/zapret) — оригинальная реализация DPI-desync

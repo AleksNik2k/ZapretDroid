@@ -44,12 +44,18 @@ class UdpProxyHandler(
 
         scope.launch {
             try {
-                val bypass = DpiBypass(strategy)
-                bypass.applyOnUdpSend(
-                    session.socket,
-                    InetSocketAddress(key.dstIp, key.dstPort),
-                    payload
-                )
+                if (DomainLists.shouldBypassUdp(key.dstIp, key.dstPort, payload)) {
+                    val bypass = DpiBypass(vpnService, strategy)
+                    bypass.applyOnUdpSend(
+                        session.socket,
+                        InetSocketAddress(key.dstIp, key.dstPort),
+                        payload
+                    )
+                } else {
+                    session.socket.send(
+                        DatagramPacket(payload, payload.size, InetSocketAddress(key.dstIp, key.dstPort))
+                    )
+                }
             } catch (e: Exception) {
                 onLog("UDP send error ${key.dstIp}:${key.dstPort} - ${e.message}")
                 sessions.remove(key)

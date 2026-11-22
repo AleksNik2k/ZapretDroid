@@ -214,13 +214,112 @@ object StrategyPresets {
         services = listOf(Service.YOUTUBE, Service.GOOGLE)
     )
 
+    val ALT13 = Strategy(
+        id = "alt13",
+        name = "ALT 13 — Fake + Hostfake",
+        description = "Fake TLS/QUIC с hostfakesplit для общего доменного и IP-фильтра",
+        dpiDesync = listOf(DesyncMethod.FAKE, DesyncMethod.HOSTFAKESPLIT),
+        dpiDesyncRepeats = 11,
+        splitPos = SplitPos.POS_1,
+        seqovl = 681,
+        seqovlPattern = SeqovlPattern.GOOGLE_TLS,
+        fooling = listOf(FoolingMethod.TS),
+        fakeData = FakeData.TLS_SOCHI,
+        hostFakeHost = "mail.ru",
+        hostFakeAltOrder = true,
+        services = listOf(Service.YOUTUBE, Service.DISCORD, Service.GOOGLE)
+    )
+
+    val EXP = Strategy(
+        id = "exp",
+        name = "EXP — Experimental",
+        description = "Экспериментальная смешанная стратегия с QUIC, STUN и fake unknown",
+        dpiDesync = listOf(DesyncMethod.FAKE, DesyncMethod.MULTISPLIT),
+        splitPos = SplitPos.POS_1,
+        seqovl = 480,
+        seqovlPattern = SeqovlPattern.STUN_TLS,
+        fooling = listOf(FoolingMethod.TS),
+        dpiDesyncRepeats = 11,
+        desyncCutoff = DesyncCutoff.N4,
+        fakeData = FakeData.TLS_SFERUM,
+        anyProtocol = true,
+        services = listOf(Service.YOUTUBE, Service.DISCORD, Service.GAMING, Service.GOOGLE)
+    )
+
+    val FAKE_TLS_AUTO_ALT = Strategy(
+        id = "fake_tls_auto_alt",
+        name = "Fake TLS AUTO ALT",
+        description = "Рандомный TLS/DUPSID с multisplit для доменов и IP-режима",
+        dpiDesync = listOf(DesyncMethod.FAKE, DesyncMethod.MULTISPLIT),
+        splitPos = SplitPos.POS_1,
+        seqovl = 681,
+        seqovlPattern = SeqovlPattern.GOOGLE_TLS,
+        fooling = listOf(FoolingMethod.TS),
+        fakeTlsMod = FakeTlsMod.RND,
+        fakeTlsSni = "www.google.com",
+        dpiDesyncRepeats = 8,
+        services = listOf(Service.YOUTUBE, Service.DISCORD, Service.GOOGLE)
+    )
+
+    val FAKE_TLS_AUTO_ALT2 = Strategy(
+        id = "fake_tls_auto_alt2",
+        name = "Fake TLS AUTO ALT 2",
+        description = "Рандомный TLS с длинным повтором и HTTP fake-пакетом",
+        dpiDesync = listOf(DesyncMethod.FAKE, DesyncMethod.MULTISPLIT),
+        splitPos = SplitPos.POS_1,
+        seqovl = 681,
+        seqovlPattern = SeqovlPattern.PDA_TLS,
+        fooling = listOf(FoolingMethod.TS),
+        fakeTlsMod = FakeTlsMod.DUPSID,
+        fakeTlsSni = "ya.ru",
+        dpiDesyncRepeats = 10,
+        services = listOf(Service.YOUTUBE, Service.DISCORD, Service.GOOGLE)
+    )
+
+    val FAKE_TLS_AUTO_ALT3 = Strategy(
+        id = "fake_tls_auto_alt3",
+        name = "Fake TLS AUTO ALT 3",
+        description = "Смешанный random/DupSID-вариант для дискретных сетевых провайдеров",
+        dpiDesync = listOf(DesyncMethod.FAKE, DesyncMethod.MULTISPLIT),
+        splitPos = SplitPos.POS_1,
+        seqovl = 681,
+        seqovlPattern = SeqovlPattern.GOOGLE_TLS,
+        fakeTlsMod = FakeTlsMod.RND,
+        fakeTlsSni = "www.google.com",
+        dpiDesyncRepeats = 8,
+        services = listOf(Service.YOUTUBE, Service.DISCORD, Service.GOOGLE)
+    )
+
+    val SIMPLE_FAKE_ALT = Strategy(
+        id = "simple_fake_alt",
+        name = "Simple Fake ALT",
+        description = "Упрощённый fake с усиленным повтором для TCP",
+        dpiDesync = listOf(DesyncMethod.FAKE),
+        fakeData = FakeData.TLS_GOOGLE,
+        dpiDesyncRepeats = 10,
+        services = listOf(Service.YOUTUBE, Service.DISCORD, Service.GOOGLE)
+    )
+
+    val SIMPLE_FAKE_ALT2 = Strategy(
+        id = "simple_fake_alt2",
+        name = "Simple Fake ALT 2",
+        description = "Fake-пакет с timestamp fooling и sferum TLS-паттерном",
+        dpiDesync = listOf(DesyncMethod.FAKE),
+        fooling = listOf(FoolingMethod.TS),
+        fakeData = FakeData.TLS_SFERUM,
+        dpiDesyncRepeats = 8,
+        services = listOf(Service.YOUTUBE, Service.DISCORD, Service.GOOGLE)
+    )
+
     val ALL: List<Strategy> = listOf(
         GENERAL,
         ALT1, ALT2, ALT3, ALT4, ALT5,
         ALT6, ALT7, ALT8, ALT9, ALT10,
         ALT11, ALT12,
+        ALT13, EXP,
         FAKE_TLS_AUTO, FAKE_TLS_AUTO_DUPSID,
-        SIMPLE_FAKE, SIMPLE_FAKE_UDP,
+        FAKE_TLS_AUTO_ALT, FAKE_TLS_AUTO_ALT2, FAKE_TLS_AUTO_ALT3,
+        SIMPLE_FAKE, SIMPLE_FAKE_ALT, SIMPLE_FAKE_ALT2, SIMPLE_FAKE_UDP,
         GOOGLE_IP_ZERO
     )
 }

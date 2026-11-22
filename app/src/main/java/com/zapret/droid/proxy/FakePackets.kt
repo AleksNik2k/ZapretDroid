@@ -1,9 +1,28 @@
 package com.zapret.droid.proxy
 
+import android.content.Context
+import java.io.IOException
+
 // Pre-recorded fake packet payloads for DPI bypass.
 // These are standard handshake bytes used as decoys sent with TTL=1
 // so they reach DPI sensors but die before the real server.
 object FakePackets {
+
+    private val assets = mutableMapOf<String, ByteArray>()
+
+    fun load(context: Context) {
+        val names = context.assets.list("fake_packets").orEmpty()
+        names.forEach { name ->
+            try {
+                context.assets.open("fake_packets/$name").use { stream ->
+                    assets[name] = stream.readBytes()
+                }
+            } catch (_: IOException) {}
+        }
+    }
+
+    fun fromAsset(name: String, fallback: ByteArray): ByteArray =
+        assets[name] ?: fallback
 
     // Minimal QUIC Initial packet targeting www.google.com
     val QUIC_INITIAL_GOOGLE: ByteArray = byteArrayOf(

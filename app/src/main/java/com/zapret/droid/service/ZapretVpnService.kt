@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -41,6 +42,10 @@ class ZapretVpnService : VpnService() {
             if (logBuffer.size > 500) logBuffer.removeFirst()
             onLogUpdate?.invoke(msg)
         }
+
+        fun clearLogs() {
+            logBuffer.clear()
+        }
     }
 
     private var vpnInterface: ParcelFileDescriptor? = null
@@ -68,9 +73,24 @@ class ZapretVpnService : VpnService() {
     }
 
     private fun startVpn(strategy: Strategy, telegramEnabled: Boolean) {
+        if (isRunning) {
+            log("VPN уже запущен — повторный запуск пропущен")
+            return
+        }
+
         DomainLists.load(this)
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildNotification(strategy.name))
+        val notification = buildNotification(strategy.name)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            startForeground(NOTIFICATION_ID, notification)
+        }
 
         val builder = Builder()
             .setSession("ZapretDroid")
@@ -188,7 +208,12 @@ class ZapretVpnService : VpnService() {
         try { vpnInterface?.close() } catch (_: Exception) {}
         vpnInterface = null
         log("ZapretDroid stopped")
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
         stopSelf()
     }
 
@@ -224,6 +249,8 @@ class ZapretVpnService : VpnService() {
             .setSmallIcon(R.drawable.ic_vpn_key)
             .setContentIntent(openIntent)
             .addAction(R.drawable.ic_stop, "Стоп", stopIntent)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setOnlyAlertOnce(true)
             .setOngoing(true)
             .build()
     }

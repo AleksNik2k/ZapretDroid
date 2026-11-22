@@ -91,12 +91,14 @@ class UdpProxyHandler(
 
     fun cleanup() {
         val now = System.currentTimeMillis()
-        sessions.entries.removeIf { (_, session) ->
-            if (now - session.lastActivity > SESSION_TIMEOUT_MS) {
-                session.job?.cancel()
-                try { session.socket.close() } catch (_: Exception) {}
-                true
-            } else false
+        val expiredKeys = sessions.entries
+            .filter { (_, session) -> now - session.lastActivity > SESSION_TIMEOUT_MS }
+            .map { (key, _) -> key }
+
+        expiredKeys.forEach { key ->
+            val session = sessions.remove(key)
+            session?.job?.cancel()
+            try { session?.socket?.close() } catch (_: Exception) {}
         }
     }
 

@@ -6,8 +6,8 @@
         <item name="colorOnPrimary">@color/bg_dark</item>
         <item name="colorSecondary">@color/accent_green</item>
         <item name="colorOnSecondary">@color/bg_dark</item>
-        <item name="android:statusBarColor">@color/surface_dark</item>
-        <item name="android:navigationBarColor">@color/bg_dark</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowBackground">@color/bg_dark</item>
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>

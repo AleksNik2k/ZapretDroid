@@ -39,6 +39,14 @@ class LogAdapter : RecyclerView.Adapter<LogAdapter.VH>() {
         notifyDataSetChanged()
     }
 
+    fun clearLogs() {
+        val previousSize = logs.size
+        logs.clear()
+        if (previousSize > 0) {
+            notifyItemRangeRemoved(0, previousSize)
+        }
+    }
+
     private fun currentTime(): String {
         val cal = java.util.Calendar.getInstance()
         return "%02d:%02d:%02d".format(cal.get(java.util.Calendar.HOUR_OF_DAY),

@@ -4,10 +4,14 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.net.VpnService
 import android.os.Bundle
+import android.os.Build
+import android.content.pm.PackageManager
 import android.view.View
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.enableEdgeToEdge
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
@@ -32,6 +36,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var rvStrategies: RecyclerView
     private lateinit var rvLogs: RecyclerView
     private lateinit var statusIndicator: View
+    private lateinit var btnClearLogs: MaterialButton
 
     private var selectedStrategy: Strategy = StrategyPresets.GENERAL
 
@@ -41,7 +46,13 @@ class MainActivity : AppCompatActivity() {
         if (result.resultCode == RESULT_OK) startVpnService()
     }
 
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+            startVpnServiceUnchecked()
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
@@ -71,6 +82,7 @@ class MainActivity : AppCompatActivity() {
         rvStrategies = findViewById(R.id.rvStrategies)
         rvLogs = findViewById(R.id.rvLogs)
         statusIndicator = findViewById(R.id.statusIndicator)
+        btnClearLogs = findViewById(R.id.btnClearLogs)
     }
 
     private fun loadPreferences() {
@@ -122,6 +134,11 @@ class MainActivity : AppCompatActivity() {
         switchAutostart.setOnCheckedChangeListener { _, checked ->
             prefs.edit().putBoolean("autostart", checked).apply()
         }
+
+        btnClearLogs.setOnClickListener {
+            ZapretVpnService.clearLogs()
+            logAdapter.clearLogs()
+        }
     }
 
     private fun requestVpnPermission() {
@@ -134,13 +151,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startVpnService() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        startVpnServiceUnchecked()
+    }
+
+    private fun startVpnServiceUnchecked() {
         ZapretVpnService.log("Запуск стратегии: ${selectedStrategy.name} (${selectedStrategy.id})")
         val intent = Intent(this, ZapretVpnService::class.java).apply {
             action = ZapretVpnService.ACTION_START
             putExtra(ZapretVpnService.EXTRA_STRATEGY_ID, selectedStrategy.id)
             putExtra(ZapretVpnService.EXTRA_TELEGRAM_ENABLED, switchTelegram.isChecked)
         }
-        startForegroundService(intent)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
         updateStatusUi()
     }
 

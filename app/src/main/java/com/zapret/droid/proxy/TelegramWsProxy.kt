@@ -1,6 +1,7 @@
 package com.zapret.droid.proxy
 
 import android.net.VpnService
+import android.util.Base64 as AndroidBase64
 import kotlinx.coroutines.*
 import java.io.*
 import java.net.*
@@ -130,8 +131,9 @@ class TelegramWsProxy(
                 vpnService.protect(sock)
                 sock.startHandshake()
 
-                val wsKey = Base64.getEncoder().encodeToString(
-                    ByteArray(16).also { Random().nextBytes(it) }
+                val wsKey = AndroidBase64.encodeToString(
+                    ByteArray(16).also { Random().nextBytes(it) },
+                    AndroidBase64.NO_WRAP
                 )
                 val request = buildString {
                     append("GET $WS_PATH HTTP/1.1\r\n")
